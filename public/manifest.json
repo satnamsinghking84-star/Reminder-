@@ -1,0 +1,23 @@
+{
+  "short_name": "Reminders",
+  "name": "Reminder Web App",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/3602/3602145.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3602/3602145.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#ef4444",
+  "display": "standalone",
+  "orientation": "portrait"
+}
