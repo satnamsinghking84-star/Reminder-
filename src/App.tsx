@@ -72,12 +72,81 @@ export default function App() {
     setDeferredPrompt(null);
   };
 
+  // Helper to convert base64url to Uint8Array
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  // Sync reminders and setup push registration
+  const syncPushSubscription = async (currentReminders: Reminder[]) => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push messaging is not supported in this browser');
+        return;
+      }
+
+      if (Notification.permission !== 'granted') {
+        console.warn('Notification permission not granted, cannot register push');
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      
+      // Get VAPID public key from backend
+      const res = await fetch('/api/vapid-public-key');
+      const { publicKey } = await res.json();
+      
+      if (!publicKey) {
+        console.error('Failed to load VAPID public key from backend');
+        return;
+      }
+
+      // Subscribe to Push Service
+      let subscription = await reg.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        console.log('[Push Client] Created new push subscription:', subscription);
+      }
+
+      // Sync subscription and reminders list with server
+      await fetch('/api/reminders/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription,
+          reminders: currentReminders
+        })
+      });
+      console.log('[Push Client] Synchronized reminders with push server successfully!');
+    } catch (err) {
+      console.error('[Push Client] Failed to register push subscription:', err);
+    }
+  };
+
   // 1. Load reminders from localStorage and setup Permissions on startup
   useEffect(() => {
+    let initialReminders: Reminder[] = [];
     try {
       const stored = localStorage.getItem('reminder_app_alerts');
       if (stored) {
-        setReminders(JSON.parse(stored));
+        initialReminders = JSON.parse(stored);
+        setReminders(initialReminders);
       }
     } catch (e) {
       console.warn('Failed to parse reminders from localStorage:', e);
@@ -92,6 +161,9 @@ export default function App() {
       navigator.serviceWorker.register('/sw.js')
         .then((reg) => {
           console.log('[App] Service Worker registered scope:', reg.scope);
+          if (Notification.permission === 'granted' && initialReminders.length > 0) {
+            syncPushSubscription(initialReminders);
+          }
         })
         .catch((err) => {
           console.warn('[App] Service Worker registration failed:', err);
@@ -128,6 +200,9 @@ export default function App() {
   const saveReminders = (updated: Reminder[]) => {
     setReminders(updated);
     localStorage.setItem('reminder_app_alerts', JSON.stringify(updated));
+    if (Notification.permission === 'granted') {
+      syncPushSubscription(updated);
+    }
   };
 
   // 4. Background checker for active reminders (Runs every 1s)
@@ -335,7 +410,12 @@ export default function App() {
       <main className="max-w-4xl mx-auto px-4 mt-6 space-y-6 relative z-10">
         
         {/* Permission Manager Card */}
-        <PermissionPrompt onPermissionChange={(status) => setNotifPermission(status)} />
+        <PermissionPrompt onPermissionChange={(status) => {
+          setNotifPermission(status);
+          if (status === 'granted') {
+            syncPushSubscription(reminders);
+          }
+        }} />
 
         {/* Background Alarm Lock Panel */}
         <div id="background-lock-panel" className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 relative overflow-hidden backdrop-blur-sm">

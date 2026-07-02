@@ -70,11 +70,50 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Push Notification Event
+self.addEventListener('push', (event) => {
+  console.log('[Service Worker] Push Received.');
+  let data = { title: '⏰ अलार्म: रिमाइंडर', body: 'आपका रिमाइंडर समय आ गया है!', tag: 'reminder' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: '⏰ अलार्म: रिमाइंडर', body: event.data.text(), tag: 'reminder' };
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 100, 200, 100, 200, 100, 400],
+    data: {
+      url: '/'
+    },
+    tag: data.tag || 'reminder',
+    renotify: true,
+    requireInteraction: true, // Keep notification visible until dismissed
+    actions: [
+      { action: 'open', title: 'रिमाइंडर देखें (View)' },
+      { action: 'dismiss', title: 'बंद करें (Dismiss)' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
 // Notification Click Event - focus or open the app
 self.addEventListener('notificationclick', (event) => {
   console.log('[Service Worker] Notification Clicked:', event.notification.tag);
   
   event.notification.close();
+
+  if (event.action === 'dismiss') {
+    return;
+  }
 
   // Define what to do when notification is clicked
   event.waitUntil(
@@ -82,6 +121,9 @@ self.addEventListener('notificationclick', (event) => {
       // If a window client is already open, focus it
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
+          if ('postMessage' in client) {
+            client.postMessage({ action: 'notification-clicked', tag: event.notification.tag });
+          }
           return client.focus();
         }
       }
