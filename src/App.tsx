@@ -12,10 +12,11 @@ import {
   Download,
   Smartphone,
   Share2,
-  HelpCircle
+  HelpCircle,
+  Zap
 } from 'lucide-react';
 import { Reminder } from './types';
-import { startAlarm, stopAlarm, initAudioContext, playBeep } from './utils/alarm';
+import { startAlarm, stopAlarm, initAudioContext, playBeep, startSilentKeepAlive, stopSilentKeepAlive } from './utils/alarm';
 import AlarmOverlay from './components/AlarmOverlay';
 import ReminderForm from './components/ReminderForm';
 import ReminderItem from './components/ReminderItem';
@@ -28,6 +29,7 @@ export default function App() {
   const [, setNotifPermission] = useState<NotificationPermission>('default');
   const [currentLocalTime, setCurrentLocalTime] = useState<Date>(new Date());
   const [isTestMode, setIsTestMode] = useState(false);
+  const [isBackgroundLockActive, setIsBackgroundLockActive] = useState<boolean>(true);
 
   // PWA Install Prompt state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -96,6 +98,23 @@ export default function App() {
         });
     }
   }, []);
+
+  // 1b. Background Keep-Alive (Silent Audio Wake-Lock to prevent CPU throttling)
+  useEffect(() => {
+    const hasActiveFuture = reminders.some(
+      (r) => !r.triggered && new Date(r.dateTime).getTime() > Date.now()
+    );
+
+    if (isBackgroundLockActive && hasActiveFuture) {
+      startSilentKeepAlive();
+    } else {
+      stopSilentKeepAlive();
+    }
+
+    return () => {
+      stopSilentKeepAlive();
+    };
+  }, [reminders, isBackgroundLockActive]);
 
   // 2. Local Time ticking clock
   useEffect(() => {
@@ -195,6 +214,9 @@ export default function App() {
     // Play subtle chime on success to verify Audio Context is initialized
     initAudioContext();
     playBeep(1200, 0.15);
+    if (isBackgroundLockActive) {
+      startSilentKeepAlive();
+    }
   };
 
   const handleDeleteReminder = (id: string) => {
@@ -314,6 +336,65 @@ export default function App() {
         
         {/* Permission Manager Card */}
         <PermissionPrompt onPermissionChange={(status) => setNotifPermission(status)} />
+
+        {/* Background Alarm Lock Panel */}
+        <div id="background-lock-panel" className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-5 relative overflow-hidden backdrop-blur-sm">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl -z-10" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className={`p-3 rounded-2xl border transition-all duration-300 ${
+                isBackgroundLockActive 
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                  : 'bg-zinc-800/20 text-zinc-500 border-zinc-800/40'
+              }`}>
+                <Zap className={`w-5.5 h-5.5 ${isBackgroundLockActive ? 'animate-pulse' : ''}`} />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-zinc-100 font-display">
+                    ⚡ Background Wake-Lock (पृष्ठभूमि अलार्म लॉक)
+                  </h3>
+                  <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                    isBackgroundLockActive 
+                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                      : 'bg-zinc-800/40 border border-zinc-800/60 text-zinc-500'
+                  }`}>
+                    {isBackgroundLockActive ? 'सक्रिय (ACTIVE)' : 'बंद (INACTIVE)'}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed max-w-xl">
+                  इसे चालू रखने पर हमारा ऐप बैकग्राउंड में एक अदृश्य, म्यूटेड साउंड ट्रैक प्ले करता है। इससे मोबाइल ऑपरेटिंग सिस्टम आपके अलार्म को कभी सुलाएगा नहीं, और दूसरे ऐप्स चलाने पर भी अलार्म बिल्कुल सही समय पर बजेगा।
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center gap-1.5 self-end md:self-auto min-w-[120px]">
+              <button
+                type="button"
+                onClick={() => {
+                  initAudioContext();
+                  const nextState = !isBackgroundLockActive;
+                  setIsBackgroundLockActive(nextState);
+                  if (nextState) {
+                    startSilentKeepAlive();
+                  } else {
+                    stopSilentKeepAlive();
+                  }
+                }}
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer text-center ${
+                  isBackgroundLockActive
+                    ? 'bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 shadow-md shadow-emerald-500/5'
+                    : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                }`}
+              >
+                {isBackgroundLockActive ? 'LOCK ON' : 'LOCK OFF'}
+              </button>
+              <span className="text-[10px] text-zinc-500 font-medium font-display leading-tight text-center">
+                {isBackgroundLockActive ? 'बैटरी सुरक्षित' : 'अलार्म रुक सकता है'}
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Dashboard Stat Cards */}
         <DashboardStats reminders={reminders} />

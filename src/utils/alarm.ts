@@ -6,6 +6,7 @@
 let audioCtx: AudioContext | null = null;
 let beepIntervalId: number | null = null;
 let vibrationIntervalId: number | null = null;
+let silentSource: AudioBufferSourceNode | null = null;
 
 /**
  * Initializes the AudioContext upon a user gesture to bypass browser autoplay restrictions.
@@ -16,6 +17,47 @@ export function initAudioContext() {
   }
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
+  }
+}
+
+/**
+ * Starts an inaudible, battery-safe loop to prevent the mobile OS from sleeping or throttling the Javascript timer.
+ */
+export function startSilentKeepAlive() {
+  try {
+    initAudioContext();
+    if (!audioCtx) return;
+
+    if (silentSource) return; // already active
+
+    // Create a 1-second silent audio buffer
+    const bufferSize = audioCtx.sampleRate;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    
+    silentSource = audioCtx.createBufferSource();
+    silentSource.buffer = buffer;
+    silentSource.loop = true;
+    
+    // Connect to destination to trigger active media status
+    silentSource.connect(audioCtx.destination);
+    silentSource.start(0);
+    console.log('[Background KeepAlive] Inaudible wake-lock activated successfully');
+  } catch (err) {
+    console.warn('Failed to start silent keepalive:', err);
+  }
+}
+
+/**
+ * Stops the inaudible loop.
+ */
+export function stopSilentKeepAlive() {
+  if (silentSource) {
+    try {
+      silentSource.stop();
+      silentSource.disconnect();
+    } catch (e) {}
+    silentSource = null;
+    console.log('[Background KeepAlive] Inaudible wake-lock deactivated');
   }
 }
 
