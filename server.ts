@@ -71,6 +71,20 @@ app.get("/api/vapid-public-key", (req, res) => {
   res.json({ publicKey: vapidKeys.publicKey });
 });
 
+app.get("/api/reminders/status", (req, res) => {
+  const { endpoint } = req.query;
+  if (!endpoint) {
+    return res.status(400).json({ error: 'Endpoint is required' });
+  }
+
+  const sync = db.syncs.find(s => s.subscription.endpoint === endpoint);
+  if (!sync) {
+    return res.json({ reminders: [] });
+  }
+
+  res.json({ reminders: sync.reminders });
+});
+
 app.post("/api/reminders/sync", (req, res) => {
   const { subscription, reminders } = req.body;
   if (!subscription) {

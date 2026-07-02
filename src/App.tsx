@@ -88,6 +88,37 @@ export default function App() {
     return outputArray;
   };
 
+  // Fetch latest triggered statuses from server to sync state and prevent double-triggering
+  const fetchAndSyncRemindersStatus = async () => {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      if (Notification.permission !== 'granted') return;
+      
+      const reg = await navigator.serviceWorker.ready;
+      const subscription = await reg.pushManager.getSubscription();
+      if (!subscription) return;
+
+      const res = await fetch(`/api/reminders/status?endpoint=${encodeURIComponent(subscription.endpoint)}`);
+      const data = await res.json();
+      
+      if (data && data.reminders) {
+        setReminders((prevReminders) => {
+          const merged = prevReminders.map((localRem) => {
+            const serverRem = data.reminders.find((r: any) => r.id === localRem.id);
+            if (serverRem) {
+              return { ...localRem, triggered: serverRem.triggered };
+            }
+            return localRem;
+          });
+          localStorage.setItem('reminder_app_alerts', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to sync reminder statuses with server:', err);
+    }
+  };
+
   // Sync reminders and setup push registration
   const syncPushSubscription = async (currentReminders: Reminder[]) => {
     try {
@@ -112,14 +143,22 @@ export default function App() {
         return;
       }
 
-      // Subscribe to Push Service
       let subscription = await reg.pushManager.getSubscription();
+      const lastKey = localStorage.getItem('last_vapid_public_key');
+
+      if (subscription && lastKey !== publicKey) {
+        console.log('[Push Client] VAPID key changed, unsubscribing old push registration...');
+        await subscription.unsubscribe();
+        subscription = null;
+      }
+
       if (!subscription) {
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
-        console.log('[Push Client] Created new push subscription:', subscription);
+        localStorage.setItem('last_vapid_public_key', publicKey);
+        console.log('[Push Client] Created fresh push subscription:', subscription);
       }
 
       // Sync subscription and reminders list with server
@@ -161,14 +200,33 @@ export default function App() {
       navigator.serviceWorker.register('/sw.js')
         .then((reg) => {
           console.log('[App] Service Worker registered scope:', reg.scope);
-          if (Notification.permission === 'granted' && initialReminders.length > 0) {
-            syncPushSubscription(initialReminders);
+          if (Notification.permission === 'granted') {
+            if (initialReminders.length > 0) {
+              syncPushSubscription(initialReminders);
+            }
+            fetchAndSyncRemindersStatus();
           }
         })
         .catch((err) => {
           console.warn('[App] Service Worker registration failed:', err);
         });
     }
+  }, []);
+
+  // 1c. Visibility & Focus change listener to update triggered status from server
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAndSyncRemindersStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, []);
 
   // 1b. Background Keep-Alive (Silent Audio Wake-Lock to prevent CPU throttling)
