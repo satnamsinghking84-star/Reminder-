@@ -8,7 +8,11 @@ import {
   CalendarClock, 
   Cpu, 
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Smartphone,
+  Share2,
+  HelpCircle
 } from 'lucide-react';
 import { Reminder } from './types';
 import { startAlarm, stopAlarm, initAudioContext, playBeep } from './utils/alarm';
@@ -24,6 +28,46 @@ export default function App() {
   const [, setNotifPermission] = useState<NotificationPermission>('default');
   const [currentLocalTime, setCurrentLocalTime] = useState<Date>(new Date());
   const [isTestMode, setIsTestMode] = useState(false);
+
+  // PWA Install Prompt state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [showInstallGuide, setShowInstallGuide] = useState<boolean>(false);
+
+  // Register PWA install prompt listeners and active check
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+      console.log('App was successfully installed on the home screen!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check standalone mode
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const triggerInstallPrompt = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+  };
 
   // 1. Load reminders from localStorage and setup Permissions on startup
   useEffect(() => {
@@ -272,6 +316,118 @@ export default function App() {
 
         {/* Dashboard Stat Cards */}
         <DashboardStats reminders={reminders} />
+
+        {/* PWA Home Screen Banner & Installation Guide */}
+        <div id="pwa-install-banner" className="bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-5 md:p-6 space-y-5 relative overflow-hidden backdrop-blur-sm">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-red-500/5 rounded-full blur-3xl -z-10" />
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-red-500/10 text-red-400 rounded-lg">
+                  <Smartphone className="w-5 h-5" />
+                </span>
+                <h2 className="text-sm font-bold font-display text-zinc-100 uppercase tracking-wider">
+                  Mobile Home Screen (PWA) App
+                </h2>
+              </div>
+              <p className="text-xs text-zinc-400 leading-relaxed max-w-2xl">
+                इस ऐप को सीधे अपने मोबाइल की होम स्क्रीन (Home Screen) पर इंस्टॉल करें। PWA इंस्टॉल करने से आपको एक असली मोबाइल ऐप जैसा अनुभव मिलेगा और रिमाइंडर अलर्ट्स सही से काम करेंगे!
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 font-mono text-[10px] self-start md:self-auto">
+              <span className="text-zinc-500">STATUS:</span>
+              {isInstalled ? (
+                <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> INSTALLED / PWA MODE
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> BROWSER MODE
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-1 border-t border-zinc-800/40">
+            {deferredPrompt && (
+              <button
+                onClick={triggerInstallPrompt}
+                id="btn-direct-install-pwa"
+                className="px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-zinc-50 text-xs font-bold rounded-xl shadow-lg shadow-red-500/15 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" /> 📥 Install App (होम स्क्रीन पर लाएं)
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowInstallGuide(!showInstallGuide)}
+              id="btn-toggle-pwa-guide"
+              className="px-4 py-2.5 bg-zinc-950 border border-zinc-800 hover:bg-zinc-850 text-zinc-300 hover:text-zinc-50 text-xs font-semibold rounded-xl flex items-center gap-2 active:scale-97 transition-all cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4 text-zinc-400" /> 
+              {showInstallGuide ? "Hide Setup Guide" : "How to Install? (इंस्टॉल कैसे करें?)"}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showInstallGuide && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden space-y-4 pt-4 border-t border-zinc-800/60"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  {/* Android Card */}
+                  <div className="bg-zinc-950/60 border border-zinc-800/40 rounded-xl p-4 space-y-2">
+                    <h4 className="font-bold text-zinc-200 flex items-center gap-1.5">
+                      <span className="text-red-400">🤖</span> Android Users (Chrome):
+                    </h4>
+                    <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                      <li>Chrome browser में इस वेबसाइट को खोलें।</li>
+                      <li>यदि ऊपर <strong className="text-red-400">"Install App"</strong> बटन दिखाई दे तो उसपर क्लिक करें।</li>
+                      <li>या फिर दाईं ओर कोने में <strong className="text-zinc-300">3 Dots (Menu)</strong> पर क्लिक करें।</li>
+                      <li>वहां <strong className="text-red-400">"Add to Home screen"</strong> या <strong className="text-red-400">"Install app"</strong> का विकल्प चुनें।</li>
+                    </ol>
+                  </div>
+
+                  {/* iOS Card */}
+                  <div className="bg-zinc-950/60 border border-zinc-800/40 rounded-xl p-4 space-y-2">
+                    <h4 className="font-bold text-zinc-200 flex items-center gap-1.5">
+                      <span className="text-red-400">🍎</span> iPhone / iPad Users (Safari):
+                    </h4>
+                    <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                      <li>Safari browser में इस वेबसाइट को खोलें।</li>
+                      <li>नीचे दिए गए <strong className="text-red-400 font-semibold flex items-center gap-1 inline-flex">Share <Share2 className="w-3.5 h-3.5 text-red-400" /></strong> बटन पर क्लिक करें।</li>
+                      <li>थोड़ा नीचे स्क्रॉल करें और <strong className="text-red-400">"Add to Home Screen"</strong> पर क्लिक करें।</li>
+                      <li>अब यह आपके iPhone के होम स्क्रीन पर एक असली ऐप की तरह आ जाएगा!</li>
+                    </ol>
+                  </div>
+                </div>
+
+                <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4">
+                  <h4 className="font-bold text-red-400 text-xs mb-1.5 flex items-center gap-1.5">
+                    ⚠️ महत्वपूर्ण जानकारी (Most Important Info):
+                  </h4>
+                  <ul className="list-disc pl-4 space-y-1.5 text-zinc-400 leading-relaxed text-[11px]">
+                    <li>
+                      <strong className="text-zinc-300">Chrome Band (Closed) Alerts:</strong> जब आप Chrome को पूरी तरह बंद (force close) कर देते हैं, तो मोबाइल ऑपरेटिंग सिस्टम सुरक्षा कारणों से सभी बैकग्राउंड जावास्क्रिप्ट टाइमर को सस्पेंड कर देता है।
+                    </li>
+                    <li>
+                      <strong className="text-zinc-300">उपाय (Solution):</strong> ऐप को होम स्क्रीन पर इंस्टॉल करें (PWA) और इसे बैकग्राउंड में खुला रहने दें (सिर्फ मिनिमाइज़ करें, पूरी तरह स्वाइप करके बंद न करें)।
+                    </li>
+                    <li>
+                      <strong className="text-zinc-300">Permission:</strong> सुनिश्चित करें कि आपने अलार्म नोटिफिकेशन की अनुमति दी हुई है।
+                    </li>
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Action Controls & Quick Test */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
