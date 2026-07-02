@@ -33,6 +33,7 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [showInstallGuide, setShowInstallGuide] = useState<boolean>(false);
+  const [selectedBrand, setSelectedBrand] = useState<'all' | 'samsung' | 'xiaomi' | 'oneplus' | 'iphone'>('all');
 
   // Register PWA install prompt listeners and active check
   useEffect(() => {
@@ -378,8 +379,9 @@ export default function App() {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.2 }}
-                className="overflow-hidden space-y-4 pt-4 border-t border-zinc-800/60"
+                className="overflow-hidden space-y-5 pt-4 border-t border-zinc-800/60"
               >
+                {/* Installation Guides */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   {/* Android Card */}
                   <div className="bg-zinc-950/60 border border-zinc-800/40 rounded-xl p-4 space-y-2">
@@ -408,19 +410,129 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Battery Optimization / App Keep Alive Guides */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                      🔋 Background Settings (अलार्म को चालू रखने के लिए चुनें):
+                    </h4>
+                    <p className="text-[10px] text-zinc-500 leading-normal">
+                      मोबाइल कंपनियां बैटरी बचाने के लिए बंद ऐप्स का अलार्म रोक देती हैं। अपने मोबाइल ब्रांड के अनुसार ये सेटिंग्स करें:
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800/60">
+                    {[
+                      { id: 'all', label: '📌 सभी मोबाइल्स' },
+                      { id: 'samsung', label: '📱 Samsung' },
+                      { id: 'xiaomi', label: '📱 Xiaomi/POCO' },
+                      { id: 'oneplus', label: '📱 OnePlus/OPPO' },
+                      { id: 'iphone', label: '🍎 iPhone' }
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setSelectedBrand(tab.id as any)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                          selectedBrand === tab.id
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Brand Guide Content */}
+                  <div className="bg-zinc-950/40 border border-zinc-800/30 rounded-xl p-4 min-h-[140px] text-xs">
+                    {selectedBrand === 'all' && (
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-zinc-300 flex items-center gap-1.5">
+                          ⭐ अलार्म मिस न होने देने के मुख्य नियम:
+                        </h5>
+                        <ul className="list-disc pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                          <li>
+                            <strong className="text-zinc-200">सिर्फ मिनिमाइज़ (Minimize) करें:</strong> जब आप अलार्म सेट करें, तो ऐप को होम बटन दबाकर बैकग्राउंड में छोड़ दें। रीसेंट ऐप्स की लिस्ट से ऊपर स्वाइप करके बंद न करें।
+                          </li>
+                          <li>
+                            <strong className="text-zinc-200">डोंट डिस्टर्ब (Do Not Disturb):</strong> चेक कर लें कि आपका फोन साइलेंट या "डीएनडी" मोड में न हो।
+                          </li>
+                          <li>
+                            <strong className="text-zinc-200">Notification permission:</strong> अगर नोटिफिकेशन परमीशन ब्लॉक है तो ऊपर जाकर उसे अनुमति प्रदान करें।
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+
+                    {selectedBrand === 'samsung' && (
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-zinc-300 flex items-center gap-1.5">
+                          ⚙️ Samsung मोबाइल की आवश्यक सेटिंग्स:
+                        </h5>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                          <li>अपने सैमसंग फोन में नीचे से स्वाइप करके <strong className="text-zinc-200">Recent Apps (रीसेंट ऐप्स)</strong> स्क्रीन खोलें।</li>
+                          <li>इस रिमाइंडर ऐप (Reminders) के गोल लोगो पर टैप करें और <strong className="text-red-400 font-bold">"Keep open"</strong> पर क्लिक करें। इससे ऐप हमेशा खुला रहेगा।</li>
+                          <li>फोन की <strong className="text-zinc-200">Settings &gt; Apps &gt; Chrome/Reminders</strong> में जाएं।</li>
+                          <li>वहां <strong className="text-zinc-200">Battery</strong> पर क्लिक करें और इसे <strong className="text-emerald-400 font-bold">"Unrestricted"</strong> पर सेट करें ताकि बैकग्राउंड में अलार्म बजे।</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {selectedBrand === 'xiaomi' && (
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-zinc-300 flex items-center gap-1.5">
+                          ⚙️ Xiaomi / Redmi / POCO मोबाइल की सेटिंग्स:
+                        </h5>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                          <li><strong className="text-zinc-200">Recent Apps</strong> स्क्रीन खोलें, इस ऐप की स्क्रीन पर लॉन्ग-प्रेस (उंगली दबाकर रखें) करें।</li>
+                          <li>वहां दिख रहे <strong className="text-red-400 font-bold">Lock (ताले 🔒)</strong> वाले आइकॉन पर क्लिक करें ताकि यह बैकग्राउंड से डिलीट न हो।</li>
+                          <li>अपने फोन की <strong className="text-zinc-200">Settings &gt; Apps &gt; Manage Apps &gt; Reminders/Chrome</strong> में जाएं।</li>
+                          <li>वहां <strong className="text-zinc-200">Battery Saver</strong> पर जाकर <strong className="text-emerald-400 font-bold">"No restrictions"</strong> चुनें।</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {selectedBrand === 'oneplus' && (
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-zinc-300 flex items-center gap-1.5">
+                          ⚙️ OnePlus / OPPO / Realme मोबाइल की सेटिंग्स:
+                        </h5>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                          <li><strong className="text-zinc-200">Recent Apps</strong> खोलें और इस ऐप के ऊपर कोने में दिए गए 3 डॉट्स (:) पर क्लिक करें।</li>
+                          <li>वहां लिस्ट में से <strong className="text-red-400 font-bold">"Lock"</strong> विकल्प को चुनें।</li>
+                          <li>फोन की <strong className="text-zinc-200">Settings &gt; Apps &gt; App Management &gt; Reminders/Chrome</strong> में जाएं।</li>
+                          <li>वहां <strong className="text-zinc-200">Battery Usage</strong> में जाएं और <strong className="text-emerald-400 font-bold">"Allow background activity"</strong> को इनेबल कर दें।</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {selectedBrand === 'iphone' && (
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-zinc-300 flex items-center gap-1.5">
+                          ⚙️ Apple iPhone (iOS) की आवश्यक सेटिंग्स:
+                        </h5>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-zinc-400 font-normal leading-relaxed">
+                          <li>iPhone पर सफारी (Safari) या इस इंस्टॉल किए हुए PWA ऐप को ऊपर की तरफ स्वाइप करके पूरी तरह बंद (Close) न करें, इसे बैकग्राउंड में रहने दें।</li>
+                          <li>iPhone की <strong className="text-zinc-200">Settings &gt; General &gt; Background App Refresh</strong> में जाएं।</li>
+                          <li>सुनिश्चित करें कि <strong className="text-emerald-400 font-bold">"Background App Refresh"</strong> और वाई-फाई/डेटा चालू है।</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Important Alert Callout */}
                 <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4">
                   <h4 className="font-bold text-red-400 text-xs mb-1.5 flex items-center gap-1.5">
-                    ⚠️ महत्वपूर्ण जानकारी (Most Important Info):
+                    ⚠️ महत्वपूर्ण जानकारी (PWA Technology Limitations):
                   </h4>
                   <ul className="list-disc pl-4 space-y-1.5 text-zinc-400 leading-relaxed text-[11px]">
                     <li>
-                      <strong className="text-zinc-300">Chrome Band (Closed) Alerts:</strong> जब आप Chrome को पूरी तरह बंद (force close) कर देते हैं, तो मोबाइल ऑपरेटिंग सिस्टम सुरक्षा कारणों से सभी बैकग्राउंड जावास्क्रिप्ट टाइमर को सस्पेंड कर देता है।
+                      <strong className="text-zinc-300">Chrome Band (Closed) Alerts:</strong> जब आप किसी भी ऐप या ब्राउज़र को पूरी तरह रीसेंट स्क्रीन से हटाकर बंद कर देते हैं, तो फोन ऑपरेटिंग सिस्टम सुरक्षा कारणों से सभी लोकल बैकग्राउंड टाइमर को सस्पेंड कर देता है।
                     </li>
                     <li>
-                      <strong className="text-zinc-300">उपाय (Solution):</strong> ऐप को होम स्क्रीन पर इंस्टॉल करें (PWA) और इसे बैकग्राउंड में खुला रहने दें (सिर्फ मिनिमाइज़ करें, पूरी तरह स्वाइप करके बंद न करें)।
-                    </li>
-                    <li>
-                      <strong className="text-zinc-300">Permission:</strong> सुनिश्चित करें कि आपने अलार्म नोटिफिकेशन की अनुमति दी हुई है।
+                      <strong className="text-zinc-300">उपाय (Solution):</strong> इस ऐप को होम स्क्रीन पर लाएं, और अलार्म सेट करने के बाद होम बटन दबाकर केवल मिनिमाइज़ करें (पूरी तरह क्लोज़ न करें)। इससे अलार्म 100% सही समय पर बजेगा।
                     </li>
                   </ul>
                 </div>
